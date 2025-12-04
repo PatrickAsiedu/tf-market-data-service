@@ -8,6 +8,7 @@ import app.tradeflows.api.market_data_service.entities.Product;
 import app.tradeflows.api.market_data_service.enums.ExchangeServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -27,14 +28,23 @@ public class SubscriptionService {
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final KafkaProperties kafkaProperties;
     private final List<WebSocketSession> webSocketSessions;
+    private final String webhookUrl;
 
-    public SubscriptionService(ProductService productService, RedisService<Product> redisService, ExchangeServerClient exchangeServerClient, KafkaTemplate<String, String> kafkaTemplate, KafkaProperties kafkaProperties, List<WebSocketSession> webSocketSessions) {
+    public SubscriptionService(
+            ProductService productService,
+            RedisService<Product> redisService,
+            ExchangeServerClient exchangeServerClient,
+            KafkaTemplate<String, String> kafkaTemplate,
+            KafkaProperties kafkaProperties,
+            List<WebSocketSession> webSocketSessions,
+            @Value("${exchange.webhook.url}") String webhookUrl) {
         this.productService = productService;
         this.redisService = redisService;
         this.exchangeServerClient = exchangeServerClient;
         this.kafkaTemplate = kafkaTemplate;
         this.kafkaProperties = kafkaProperties;
         this.webSocketSessions = webSocketSessions;
+        this.webhookUrl = webhookUrl;
     }
 
     @Async
@@ -44,7 +54,7 @@ public class SubscriptionService {
 
         redisService.addItem(product.getTicker(), product);
         String payload = new JsonBuilder().gson().toJson(product);
-        kafkaTemplate.send(kafkaProperties.getMarketDataUpdateTopic(), payload);
+//        kafkaTemplate.send(kafkaProperties.getMarketDataUpdateTopic(), payload);
         webSocketSessions.forEach(session -> {
             if(session.isOpen()){
                 try {
@@ -58,8 +68,6 @@ public class SubscriptionService {
     }
 
     public void initializeWebhook(){
-        List<String> webhookUrls = List.of("https://webhook.tradeflows.app/market-data-service/subscription/updates", "http://194.29.101.66:8085/market-data-service/subscription/updates");
-        webhookUrls.forEach(webhookUrl -> {
             try {
                 exchangeServerClient.setServer(ExchangeServer.MAL1);
                 logger.info("Checking for webhook subscription on {}", ExchangeServer.MAL1);
@@ -84,7 +92,6 @@ public class SubscriptionService {
             }catch(Exception exception){
                 logger.error(exception.toString(), exception);
             }
-        });
     }
 
 }

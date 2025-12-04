@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
@@ -13,5 +14,7 @@ public interface ProductHistoryRepository extends JpaRepository<ProductHistory, 
 
     List<ProductHistory> findByProduct_TickerNotNullOrderByCreatedAtAsc();
 
+    List<ProductHistory> findByProduct_IdAndCreatedAtAfterOrderByCreatedAtAsc(@NonNull String id,
+                                                                              @NonNull LocalDateTime createdAt);
 
 }
