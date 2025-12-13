@@ -54,7 +54,7 @@ public class SubscriptionService {
 
         redisService.addItem(product.getTicker(), product);
         String payload = new JsonBuilder().gson().toJson(product);
-//        kafkaTemplate.send(kafkaProperties.getMarketDataUpdateTopic(), payload);
+        kafkaTemplate.send(kafkaProperties.getMarketDataUpdateTopic(), payload);
         webSocketSessions.forEach(session -> {
             if(session.isOpen()){
                 try {
