@@ -16,7 +16,10 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class SubscriptionService {
@@ -30,6 +33,7 @@ public class SubscriptionService {
     private final List<WebSocketSession> webSocketSessions;
     private final String webhookUrl;
 
+
     public SubscriptionService(
             ProductService productService,
             RedisService<Product> redisService,
@@ -37,6 +41,7 @@ public class SubscriptionService {
             KafkaTemplate<String, String> kafkaTemplate,
             KafkaProperties kafkaProperties,
             List<WebSocketSession> webSocketSessions,
+
             @Value("${exchange.webhook.url}") String webhookUrl) {
         this.productService = productService;
         this.redisService = redisService;
@@ -51,20 +56,55 @@ public class SubscriptionService {
     public void handleRequest(WebhookDTO webhookDTO){
         logger.info(webhookDTO.toString());
         var product = productService.getProductByTickerFromExchangeAndUpdate(webhookDTO.getProduct());
-
-        redisService.addItem(product.getTicker(), product);
+        // send to kafka
         String payload = new JsonBuilder().gson().toJson(product);
         kafkaTemplate.send(kafkaProperties.getMarketDataUpdateTopic(), payload);
-        webSocketSessions.forEach(session -> {
-            if(session.isOpen()){
-                try {
-                    logger.info("Sending market up date to {}", session.getId());
-                    session.sendMessage(new TextMessage(payload));
-                } catch (IOException e) {
-                    logger.error(e.toString(), e);
+
+        publishEnvelope("product_update", product, List.of("lastTradedPrice"));
+    }
+
+    /**
+     * Publish product update notifications (redis, kafka, websocket) for the provided product.
+     * This can be called from other components (e.g., scheduled jobs) to mimic webhook behavior.
+     */
+    public void publishMarketUpdate(Product product){
+        try {
+            publishEnvelope("product_update", product, null);
+        } catch (Exception e){
+            logger.error("Failed to publish product update: {}", e.toString());
+        }
+    }
+
+    private void publishEnvelope(String type, Product product, List<String> fieldsChanged){
+        try {
+
+            Map<String, Object> envelope = new HashMap<>();
+            envelope.put("type", type);
+            envelope.put("timestamp", LocalDateTime.now().toString());
+            envelope.put("changeType", "UPDATE");
+            if(fieldsChanged != null) envelope.put("fieldsChanged", fieldsChanged);
+            envelope.put("product", product);
+
+            String payload = new JsonBuilder().gson().toJson(envelope);
+
+
+            redisService.addItem(product.getTicker(), product);
+
+
+            // send to websocket sessions
+            webSocketSessions.forEach(session -> {
+                if(session.isOpen()){
+                    try {
+                        logger.info("Sending market update to {}", session.getId());
+                        session.sendMessage(new TextMessage(payload));
+                    } catch (IOException e) {
+                        logger.error(e.toString(), e);
+                    }
                 }
-            }
-        });
+            });
+        } catch (Exception e){
+            logger.error("Failed to publish envelope: {}", e.toString());
+        }
     }
 
     public void initializeWebhook(){

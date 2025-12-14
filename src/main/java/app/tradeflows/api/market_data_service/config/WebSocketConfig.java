@@ -24,6 +24,11 @@ public class WebSocketConfig implements WebSocketConfigurer {
         return webSocketSessions;
     }
 
+    @Bean
+    public SocketConnectionHandler socketConnectionHandler() {
+        return new SocketConnectionHandler(getSessions());
+    }
+
     // Overriding a method which register the socket
     // handlers into a Registry
     @Override
@@ -34,8 +39,8 @@ public class WebSocketConfig implements WebSocketConfigurer {
         // created before with End point Also we are managing
         // the CORS policy for the handlers so that other
         // domains can also access the socket
-        webSocketHandlerRegistry
-                .addHandler(new SocketConnectionHandler(getSessions()),"/websocket/market-data")
-                .setAllowedOrigins("*");
+    webSocketHandlerRegistry
+        .addHandler(socketConnectionHandler(), "/websocket/market-data")
+        .setAllowedOrigins("*");
     }
 }

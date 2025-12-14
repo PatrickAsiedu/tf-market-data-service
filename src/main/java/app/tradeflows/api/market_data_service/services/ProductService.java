@@ -12,11 +12,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.socket.TextMessage;
+import org.springframework.web.socket.WebSocketSession;
 
 import java.time.LocalDateTime;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 @Service
 public class ProductService {
@@ -27,13 +27,16 @@ public class ProductService {
     private final ExchangeServerClient exchangeServerClient;
     private final ProductHistoryService productHistoryService;
     private final RedisService<Object> redisService;
+    private final List<WebSocketSession> webSocketSessions;
 
 
-    public ProductService(ProductRepository productRepository, ExchangeServerClient exchangeServerClient, ProductHistoryService productHistoryService,RedisService<Object> redisService){
+
+    public ProductService(ProductRepository productRepository, ExchangeServerClient exchangeServerClient, ProductHistoryService productHistoryService, RedisService<Object> redisService, List<WebSocketSession> webSocketSessions){
         this.productRepository = productRepository;
         this.exchangeServerClient = exchangeServerClient;
         this.productHistoryService = productHistoryService;
         this.redisService = redisService;
+        this.webSocketSessions = webSocketSessions;
     }
 
     public List<Product> getAllProduct() {
@@ -124,6 +127,7 @@ public class ProductService {
             productToUpdate.setLastTradedPrice(preferredProduct.lastTradedPrice());
             productToUpdate.setMaxShiftPrice(preferredProduct.maxPriceShift());
             productToUpdate.setSellLimit(preferredProduct.sellLimit());
+            productToUpdate.setUpdatedAt(LocalDateTime.now());
             return productRepository.save(productToUpdate);
         }
 
@@ -157,5 +161,36 @@ public class ProductService {
         }
 
         return maxValues;
+    }
+
+
+    /**
+     * Broadcast a payload (will be serialized as JSON) to all connected sessions.
+     * This is safe to call from other threads; it synchronizes on the sessions list.
+     */
+    public void broadcastProducts(Object payload) {
+        try {
+            Map<String, Object> envelope = new HashMap<>();
+            envelope.put("type", "product_list");
+            envelope.put("timestamp", java.time.LocalDateTime.now().toString());
+            envelope.put("productdata", payload);
+
+            String json = new JsonBuilder().gson().toJson(envelope);
+            TextMessage message = new TextMessage(json);
+
+            synchronized (webSocketSessions) {
+                for (WebSocketSession webSocketSession : webSocketSessions) {
+                    if (webSocketSession.isOpen()) {
+                        try {
+                            webSocketSession.sendMessage(message);
+                        } catch (Exception e) {
+                            System.err.println("Failed to send message to session " + webSocketSession.getId() + ": " + e);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to broadcast products: " + e);
+        }
     }
 }

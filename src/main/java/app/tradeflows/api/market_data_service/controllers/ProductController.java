@@ -3,6 +3,7 @@ package app.tradeflows.api.market_data_service.controllers;
 import app.tradeflows.api.market_data_service.entities.Product;
 import app.tradeflows.api.market_data_service.exceptions.NotFoundException;
 import app.tradeflows.api.market_data_service.services.ProductService;
+import app.tradeflows.api.market_data_service.config.SocketConnectionHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -21,9 +22,11 @@ public class ProductController {
 
     private static final Logger logger = LoggerFactory.getLogger(ProductController.class);
     private final ProductService productService;
+    private final SocketConnectionHandler socketConnectionHandler;
 
-    public ProductController(ProductService productService) {
+    public ProductController(ProductService productService, SocketConnectionHandler socketConnectionHandler) {
         this.productService = productService;
+        this.socketConnectionHandler = socketConnectionHandler;
     }
 
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
@@ -43,4 +46,6 @@ public class ProductController {
         Product product = productService.getProductById(id);
         return ResponseEntity.ok(product);
     }
+
+
 }

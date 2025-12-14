@@ -10,6 +10,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import app.tradeflows.api.market_data_service.config.JsonBuilder;
 
 @Component
 public class SocketConnectionHandler extends TextWebSocketHandler {
@@ -21,6 +22,7 @@ public class SocketConnectionHandler extends TextWebSocketHandler {
     public SocketConnectionHandler(List<WebSocketSession> webSocketSessions) {
         this.webSocketSessions = webSocketSessions;
     }
+
 
     // This method is executed when client tries to connect
     // to the sockets
