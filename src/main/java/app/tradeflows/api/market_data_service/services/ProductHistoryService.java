@@ -47,14 +47,14 @@ public class ProductHistoryService {
     }
 
     public List<ChartDataDTO> getChartData(){
-        LocalDateTime eightHoursAgo = LocalDateTime.now().minusHours(12);
+        LocalDateTime hoursAgo = LocalDateTime.now().minusHours(6);
         List<Product> products = productRepository.findAll();
         return products.stream().map(product -> {
             ChartDataDTO chartDataDTO = new ChartDataDTO();
             chartDataDTO.setName(product.getTicker());
             chartDataDTO.setColor(this.getProductColor(product.getTicker()));
             chartDataDTO.setData(productHistoryRepository.
-                    findByProduct_IdAndCreatedAtAfterOrderByCreatedAtAsc(product.getId(), eightHoursAgo).stream().map( productHistory -> {
+                    findByProduct_IdAndCreatedAtAfterOrderByCreatedAtAsc(product.getId(), hoursAgo).stream().map( productHistory -> {
                         List<Object> item = new ArrayList<>();
                         item.add(productHistory.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
                         DecimalFormat df = new DecimalFormat("#.##");
