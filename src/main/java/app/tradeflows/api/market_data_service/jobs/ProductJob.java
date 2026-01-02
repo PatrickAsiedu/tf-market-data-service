@@ -20,7 +20,7 @@ public class ProductJob {
         this.subscriptionService = subscriptionService;
     }
 
-    @Scheduled(cron = "0 * * * * *")
+    @Scheduled(cron = "* */10 * * * ?")
     public void run(){
         logger.info("Running product job to get the latest product info");
         this.getLatestProductInfo();
